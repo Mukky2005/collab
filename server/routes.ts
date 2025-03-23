@@ -6,7 +6,7 @@ import { setupWebSocketServer } from "./websocket";
 import { setupAuth } from "./auth";
 import { z } from "zod";
 import { insertDocumentSchema, insertCollaboratorSchema, insertCommentSchema } from "@shared/schema";
-import { generateAIResponse } from "./ai-assistant";
+import { generateAIResponse, checkPlagiarism, improveWriting } from "./ai-assistant";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -500,6 +500,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating AI response:", error);
       res.status(500).json({ message: "Error generating AI response", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Plagiarism check endpoint
+  app.post("/api/plagiarism-check", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const { text } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ message: "Invalid text for plagiarism check" });
+      }
+      
+      const result = await checkPlagiarism(text);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking plagiarism:", error);
+      res.status(500).json({ 
+        message: "Error checking plagiarism", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Writing improvement endpoint
+  app.post("/api/improve-writing", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const { text } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ message: "Invalid text for writing improvement" });
+      }
+      
+      const result = await improveWriting(text);
+      res.json(result);
+    } catch (error) {
+      console.error("Error improving writing:", error);
+      res.status(500).json({ 
+        message: "Error improving writing", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

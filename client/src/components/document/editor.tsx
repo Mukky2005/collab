@@ -4,6 +4,8 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { useAuth } from "@/hooks/use-auth";
 import { CommentSidebar } from "./comment-sidebar";
 import { AIAssistant } from "./ai-assistant";
+import { PlagiarismDialog } from "./plagiarism-dialog";
+import { WritingImprovementDialog } from "./writing-improvement-dialog";
 import type { Document } from "@shared/schema";
 
 interface CursorPosition {
@@ -27,6 +29,8 @@ interface EditorProps {
 // Define an interface for the methods exposed via the ref
 export interface EditorRef {
   openAIAssistant: () => void;
+  checkPlagiarism: () => void;
+  improveWriting: () => void;
   insertAIText?: (text: string) => void;
 }
 
@@ -41,6 +45,8 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
   const [content, setContent] = useState(docData.content);
   const [showCommentSidebar, setShowCommentSidebar] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showPlagiarismDialog, setShowPlagiarismDialog] = useState(false);
+  const [showWritingImprovementDialog, setShowWritingImprovementDialog] = useState(false);
   const [selectionFormat, setSelectionFormat] = useState({
     bold: false,
     italic: false,
@@ -74,6 +80,9 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
     if (editorRef.current && docData.content) {
       editorRef.current.innerHTML = docData.content;
       setContent(docData.content);
+      
+      // Check if we need to add page breaks after content is loaded
+      setTimeout(() => checkPageOverflow(), 300);
     }
   }, [docData.id, docData.content]);
   
@@ -164,6 +173,61 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
     };
   }, []);
   
+  // Check if content exceeds page height and add a new page if needed
+  const checkPageOverflow = () => {
+    if (editorRef.current) {
+      const editorHeight = editorRef.current.scrollHeight;
+      
+      // A4 height is 297mm, but we need to account for margins and padding
+      const pageHeight = 297; // A4 height in mm
+      const pageContentHeight = pageHeight - 40; // Subtract margins (20mm top + 20mm bottom)
+      
+      // Convert measurements to pixels for comparison (assuming 96 DPI)
+      const pxPerMm = 3.78; // Approximate pixels per millimeter (96 DPI / 25.4 mm per inch)
+      const pageHeightPx = pageContentHeight * pxPerMm;
+      
+      // Get all page dividers already in the document
+      const pageDividers = editorRef.current.querySelectorAll('.page-divider');
+      
+      // Calculate how many pages we should have based on content height
+      const pagesNeeded = Math.ceil(editorHeight / pageHeightPx);
+      
+      // If we need more pages than we currently have (pageDividers.length + 1), add new dividers
+      if (pagesNeeded > pageDividers.length + 1) {
+        // How many new dividers we need to add
+        const newDividersNeeded = pagesNeeded - (pageDividers.length + 1);
+        
+        // Create and add each needed divider
+        for (let i = 0; i < newDividersNeeded; i++) {
+          // Create a page divider
+          const pageDivider = document.createElement('div');
+          pageDivider.className = 'page-divider';
+          pageDivider.innerHTML = '<hr class="border-t-2 border-dashed border-gray-300 my-8" />';
+          
+          // Add a hidden page break marker for printing
+          const pageBreak = document.createElement('div');
+          pageBreak.className = 'page-break';
+          
+          // Add divider at the bottom of the content
+          editorRef.current.appendChild(pageDivider);
+          editorRef.current.appendChild(pageBreak);
+          
+          // Update page indicator text with current number of pages
+          const pageIndicator = document.querySelector('.page-indicator');
+          if (pageIndicator) {
+            pageIndicator.textContent = `Page ${pageDividers.length + 2 + i} / Auto-pagination enabled`;
+          }
+        }
+      }
+      
+      // Initial page indicator text update
+      const pageIndicator = document.querySelector('.page-indicator');
+      if (pageIndicator && pagesNeeded <= 1) {
+        pageIndicator.textContent = `Page 1 / Auto-pagination enabled`;
+      }
+    }
+  };
+
   // Handle content changes
   const handleInput = () => {
     if (editorRef.current) {
@@ -183,6 +247,9 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
       
       setContent(newContent);
       onContentChange(newContent);
+      
+      // Check if we need to add a new page
+      setTimeout(() => checkPageOverflow(), 100);
       
       // Send content update to websocket
       sendMessage({
@@ -647,25 +714,71 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
   
   const handleInsertAIText = (text: string) => {
     if (editorRef.current) {
+      // Create a page break element
+      const pageBreak = document.createElement('div');
+      pageBreak.className = 'page-break';
+      pageBreak.style.pageBreakBefore = 'always';
+      pageBreak.style.height = '10px';
+      pageBreak.style.margin = '10px 0';
+      pageBreak.style.borderTop = '1px dashed #ccc';
+      
+      // Create a new content wrapper for the AI-generated text
+      const newPageContent = document.createElement('div');
+      newPageContent.className = 'ai-generated-content';
+      
+      // Format the AI text properly
+      const paragraphs = text.split('\n\n');
+      paragraphs.forEach((paragraph, index) => {
+        if (paragraph.trim()) {
+          const p = document.createElement('p');
+          p.textContent = paragraph.trim();
+          newPageContent.appendChild(p);
+          
+          // Add spacing between paragraphs
+          if (index < paragraphs.length - 1) {
+            const spacing = document.createElement('div');
+            spacing.style.height = '12px';
+            newPageContent.appendChild(spacing);
+          }
+        }
+      });
+      
+      // Add a label to indicate AI-generated content
+      const aiLabel = document.createElement('div');
+      aiLabel.className = 'ai-label';
+      aiLabel.innerHTML = '<span style="color:#777; font-size:0.8em; font-style:italic; margin-bottom:8px; display:block; border-bottom:1px solid #eee; padding-bottom:4px;">AI-Generated Content</span>';
+      
+      // Append elements to the editor
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
+        // If there's a selection, insert after it
         const range = selection.getRangeAt(0);
-        const textNode = document.createTextNode(text);
-        range.insertNode(textNode);
+        
+        // Move to the end of the current content
+        range.collapse(false);
+        
+        // Insert the page break and new content
+        range.insertNode(pageBreak);
+        pageBreak.appendChild(aiLabel);
+        pageBreak.appendChild(newPageContent);
         
         // Move cursor to the end of inserted text
-        range.setStartAfter(textNode);
-        range.setEndAfter(textNode);
+        range.setStartAfter(newPageContent);
+        range.setEndAfter(newPageContent);
         selection.removeAllRanges();
         selection.addRange(range);
-        
-        // Trigger content update
-        handleInput();
       } else {
         // If no selection, append to the end
-        editorRef.current.appendChild(document.createTextNode(text));
-        handleInput();
+        editorRef.current.appendChild(pageBreak);
+        pageBreak.appendChild(aiLabel);
+        pageBreak.appendChild(newPageContent);
       }
+      
+      // Trigger content update
+      handleInput();
+      
+      // Scroll to the new content
+      pageBreak.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
   
@@ -706,8 +819,24 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
   };
   
   // Expose methods via ref
+  // Handler to open the plagiarism check dialog
+  const handlePlagiarismCheck = () => {
+    if (editorRef.current) {
+      setShowPlagiarismDialog(true);
+    }
+  };
+  
+  // Handler to open the writing improvement dialog
+  const handleImproveWriting = () => {
+    if (editorRef.current) {
+      setShowWritingImprovementDialog(true);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     openAIAssistant: handleOpenAIAssistant,
+    checkPlagiarism: handlePlagiarismCheck,
+    improveWriting: handleImproveWriting,
     insertAIText: handleInsertAIText
   }));
   
@@ -715,22 +844,28 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
     <div className="flex-1 overflow-hidden relative">
       <ScrollArea className="h-full">
         <div className="mx-auto p-8 flex justify-center">
-          <div 
-            className="editor-content bg-white border border-gray-200 rounded-lg shadow-sm p-6 relative text-black font-medium" 
-            ref={editorRef}
-            contentEditable={true}
-            onInput={handleInput}
-            onMouseMove={handleMouseMove}
-            suppressContentEditableWarning={true}
-            style={{
-              width: '210mm',              /* A4 width */
-              minHeight: '297mm',          /* A4 height */
-              padding: '20mm',             /* Standard margins */
-              boxSizing: 'border-box',
-              backgroundColor: 'white',
-              boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
-            }}
-          />
+          <div className="paper-container relative">
+            <div 
+              className="editor-content bg-white border border-gray-200 rounded-lg shadow-sm relative text-black font-medium" 
+              ref={editorRef}
+              contentEditable={true}
+              onInput={handleInput}
+              onMouseMove={handleMouseMove}
+              suppressContentEditableWarning={true}
+              style={{
+                width: '210mm',              /* A4 width */
+                minHeight: '297mm',          /* A4 height */
+                padding: '20mm',             /* Standard margins */
+                boxSizing: 'border-box',
+                backgroundColor: 'white',
+                boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+              }}
+            />
+            
+            <div className="page-indicator absolute bottom-2 right-4 text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm">
+              Auto-pagination enabled
+            </div>
+          </div>
           
           {/* User cursors - temporarily disabled */}
         </div>
@@ -746,7 +881,28 @@ export const Editor = React.forwardRef<EditorRef, EditorProps>(({
       {showAIAssistant && (
         <AIAssistant 
           onClose={() => setShowAIAssistant(false)}
-          onInsertText={handleInsertAIText}
+        />
+      )}
+      
+      {showPlagiarismDialog && (
+        <PlagiarismDialog
+          isOpen={showPlagiarismDialog}
+          onClose={() => setShowPlagiarismDialog(false)}
+          documentText={editorRef.current?.textContent || ''}
+        />
+      )}
+      
+      {showWritingImprovementDialog && (
+        <WritingImprovementDialog
+          isOpen={showWritingImprovementDialog}
+          onClose={() => setShowWritingImprovementDialog(false)}
+          documentText={editorRef.current?.textContent || ''}
+          onApplyChanges={(improvedText) => {
+            if (editorRef.current) {
+              editorRef.current.innerHTML = improvedText;
+              handleInput();
+            }
+          }}
         />
       )}
     </div>

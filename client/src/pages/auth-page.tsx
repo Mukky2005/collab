@@ -23,8 +23,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
-import { FaGoogle, FaGithub } from "react-icons/fa";
 import { insertUserSchema } from "@shared/schema";
 
 // Login form schema
@@ -192,38 +190,7 @@ export default function AuthPage() {
                         {loginMutation.isPending ? "Logging in..." : "Login"}
                       </Button>
                       
-                      <div className="flex items-center">
-                        <Separator className="flex-1" />
-                        <span className="mx-4 text-sm text-muted-foreground">OR</span>
-                        <Separator className="flex-1" />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <a 
-                          href="/api/auth/google" 
-                          className="inline-flex"
-                        >
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                          >
-                            <FaGoogle className="mr-2" />
-                            <span className="font-bold">Google</span>
-                          </Button>
-                        </a>
-                        <a 
-                          href="/api/auth/github" 
-                          className="inline-flex"
-                        >
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                          >
-                            <FaGithub className="mr-2" />
-                            <span className="font-bold">GitHub</span>
-                          </Button>
-                        </a>
-                      </div>
+
                     </CardFooter>
                   </form>
                 </Form>
@@ -299,38 +266,7 @@ export default function AuthPage() {
                         {registerMutation.isPending ? "Creating account..." : "Create Account"}
                       </Button>
                       
-                      <div className="flex items-center">
-                        <Separator className="flex-1" />
-                        <span className="mx-4 text-sm text-muted-foreground">OR</span>
-                        <Separator className="flex-1" />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <a 
-                          href="/api/auth/google" 
-                          className="inline-flex"
-                        >
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                          >
-                            <FaGoogle className="mr-2" />
-                            <span className="font-bold">Google</span>
-                          </Button>
-                        </a>
-                        <a 
-                          href="/api/auth/github" 
-                          className="inline-flex"
-                        >
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                          >
-                            <FaGithub className="mr-2" />
-                            <span className="font-bold">GitHub</span>
-                          </Button>
-                        </a>
-                      </div>
+
                     </CardFooter>
                   </form>
                 </Form>

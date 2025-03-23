@@ -29,6 +29,33 @@
     font-size: 12pt;
   }
   
+  .paper-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .page-divider {
+    width: 100%;
+    margin: 24px 0;
+    position: relative;
+  }
+  
+  .editor-content img.img-small {
+    max-width: 150mm;
+    max-height: 80mm;
+  }
+  
+  .editor-content img.img-medium {
+    max-width: 170mm;
+    max-height: 100mm;
+  }
+  
+  .editor-content img.img-large {
+    max-width: 190mm;
+    max-height: 120mm;
+  }
+  
   .editor-content h1 {
     font-size: 18pt;
     font-weight: bold;
@@ -112,6 +139,46 @@
     .image-dialog button {
       padding: 6px 10px !important;
       font-size: 14px !important;
+    }
+  }
+  
+  /* Page break styling */
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+    margin: 15px 0;
+    position: relative;
+  }
+
+  .page-break::before {
+    content: "";
+    position: absolute;
+    left: -20mm; /* Match the paper margins */
+    right: -20mm;
+    height: 1px;
+    border-top: 1px dashed #ccc;
+    top: 5px;
+  }
+
+  /* AI content styling */
+  .ai-generated-content {
+    margin-top: 10px;
+  }
+
+  /* Ensure the page break works in print */
+  @media print {
+    .page-break {
+      page-break-before: always;
+      height: 0;
+      margin: 0;
+    }
+    
+    .page-break::before {
+      display: none;
+    }
+    
+    .ai-label {
+      display: none;
     }
   }
 }

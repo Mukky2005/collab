@@ -23,8 +23,6 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  getUserByGoogleId(googleId: string): Promise<User | undefined>;
-  getUserByGithubId(githubId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
   
@@ -96,17 +94,7 @@ export class MemStorage implements IStorage {
     );
   }
   
-  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.googleId === googleId
-    );
-  }
-  
-  async getUserByGithubId(githubId: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.githubId === githubId
-    );
-  }
+
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
@@ -114,8 +102,6 @@ export class MemStorage implements IStorage {
       ...insertUser,
       id,
       password: insertUser.password || null,
-      googleId: insertUser.googleId || null,
-      githubId: insertUser.githubId || null,
       avatarUrl: insertUser.avatarUrl || null
     };
     this.users.set(id, user);
@@ -265,22 +251,12 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
-  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
-    return result[0];
-  }
-  
-  async getUserByGithubId(githubId: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.githubId, githubId)).limit(1);
-    return result[0];
-  }
+
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values({
       ...insertUser,
       password: insertUser.password || null,
-      googleId: insertUser.googleId || null,
-      githubId: insertUser.githubId || null,
       avatarUrl: insertUser.avatarUrl || null
     }).returning();
     return result[0];

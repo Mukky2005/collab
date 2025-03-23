@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface AIAssistantProps {
   onClose: () => void;
-  onInsertText: (text: string) => void;
 }
 
 interface PromptTemplate {
@@ -19,7 +18,7 @@ interface PromptTemplate {
   prompt: string;
 }
 
-export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
+export function AIAssistant({ onClose }: AIAssistantProps) {
   const [prompt, setPrompt] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -105,12 +104,7 @@ export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
     }
   };
 
-  const handleInsert = () => {
-    if (response) {
-      onInsertText(response);
-      onClose();
-    }
-  };
+  // Insert function removed as per user request
   
   // Check if response content overflows the container
   useEffect(() => {
@@ -121,8 +115,35 @@ export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
     }
   }, [response]);
 
+  // Dynamically adjust container height based on viewport
+  const [containerHeight, setContainerHeight] = useState('100vh');
+  
+  useEffect(() => {
+    const updateHeight = () => {
+      setContainerHeight(`${window.innerHeight}px`);
+    };
+    
+    // Initial calculation
+    updateHeight();
+    
+    // Add listener for window resize
+    window.addEventListener('resize', updateHeight);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-lg z-50 flex flex-col">
+    <div 
+      className="fixed right-0 bg-white border-l border-gray-200 shadow-lg z-50 flex flex-col"
+      style={{ 
+        top: 0, 
+        bottom: 0, 
+        width: '380px',
+        maxWidth: '95vw',
+        height: containerHeight
+      }}
+    >
       <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-lg font-bold">AI Writing Assistant</h2>
         <Button variant="ghost" size="icon" onClick={onClose}>
@@ -130,7 +151,7 @@ export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
         </Button>
       </div>
       
-      <div className="p-4 flex flex-col space-y-4 flex-1">
+      <div className="p-4 flex flex-col space-y-4 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 60px)" }}>
         <Tabs defaultValue="custom" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-2 mb-2">
             <TabsTrigger value="custom">Custom Prompt</TabsTrigger>
@@ -222,12 +243,20 @@ export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
                 </span>
               )}
             </div>
-            <div className="relative">
+            <div className="relative flex-1 min-h-[200px]">
               <ScrollArea 
                 className="flex-1 border border-gray-200 rounded-md p-3 bg-gray-50" 
-                style={{ height: "300px", maxHeight: "40vh" }}
+                style={{ 
+                  height: "calc(max(300px, min(40vh, 100% - 160px)))",
+                  maxHeight: "calc(100vh - 320px)" 
+                }}
               >
-                <div ref={responseContainerRef} className="whitespace-pre-wrap">{response}</div>
+                <div 
+                  ref={responseContainerRef} 
+                  className="whitespace-pre-wrap pb-4"
+                >
+                  {response}
+                </div>
               </ScrollArea>
               {hasScrollOverflow && (
                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none" />
@@ -241,19 +270,13 @@ export function AIAssistant({ onClose, onInsertText }: AIAssistantProps) {
                 ) : null}
                 {hasScrollOverflow ? "Scroll down to see the complete response" : "Full response shown above"}
               </div>
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1"
-                  onClick={handleInsert}
-                >
-                  Insert into Document
-                </Button>
+              <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2 pb-1 border-t border-gray-100 mt-2" style={{ zIndex: 10 }}>
                 <Button 
                   variant="outline"
-                  className="flex-shrink-0"
+                  className="flex-1 whitespace-nowrap text-sm sm:text-base"
                   onClick={() => setResponse('')}
                 >
-                  Clear
+                  Clear Response
                 </Button>
               </div>
             </div>

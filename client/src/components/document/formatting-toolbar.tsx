@@ -9,9 +9,11 @@ import {
   Link as LinkIcon, 
   Image, 
   ChevronDown,
-  Undo,
-  Redo,
-  Bot
+  Bot,
+  Scan,
+  MoreHorizontal,
+  Type,
+  Laugh
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -22,6 +24,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useState, useEffect } from "react";
 
 interface FormatButtonProps {
   icon: React.ReactNode;
@@ -42,6 +54,7 @@ interface FormattingToolbarProps {
     fontFamily?: string;
   };
   onOpenAIAssistant: () => void;
+  onPlagiarismCheck?: () => void;
   userCount?: number;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -65,6 +78,7 @@ export function FormattingToolbar({
   onFormat, 
   selectionFormat, 
   onOpenAIAssistant,
+  onPlagiarismCheck,
   userCount = 0,
   canUndo = false,
   canRedo = false
@@ -181,6 +195,14 @@ export function FormattingToolbar({
           title="AI Writing Assistant" 
           onClick={onOpenAIAssistant} 
         />
+
+        {onPlagiarismCheck && (
+          <FormatButton 
+            icon={<Scan className="h-4 w-4" />} 
+            title="Check for Plagiarism" 
+            onClick={onPlagiarismCheck} 
+          />
+        )}
       </div>
       
       {userCount > 0 && (

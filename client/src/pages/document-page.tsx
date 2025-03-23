@@ -189,19 +189,14 @@ export default function DocumentPage() {
     setShowAIAssistant(false);
   };
   
-  const handleInsertAIText = (text: string) => {
+  // Handle plagiarism check
+  const handlePlagiarismCheck = useCallback(() => {
     if (editorRef.current) {
-      // Use the insertAIText method from the editor through ref if available
-      if (typeof editorRef.current.insertAIText === 'function') {
-        editorRef.current.insertAIText(text);
-      } else {
-        console.log("insertAIText not available on editor ref");
-        // Fallback: Just update the content
-        handleContentChange(content + text);
-      }
-      setShowAIAssistant(false);
+      editorRef.current.checkPlagiarism();
     }
-  };
+  }, [editorRef]);
+  
+  // InsertAIText function removed as per user request
   
   if (isLoading) {
     return (
@@ -249,6 +244,7 @@ export default function DocumentPage() {
             onFormat={handleFormat}
             selectionFormat={selectionFormat}
             onOpenAIAssistant={handleOpenAIAssistant}
+            onPlagiarismCheck={handlePlagiarismCheck}
             userCount={activeUsers.length}
             canUndo={canUndo}
             canRedo={canRedo}
@@ -266,7 +262,6 @@ export default function DocumentPage() {
           {showAIAssistant && (
             <AIAssistant
               onClose={handleCloseAIAssistant}
-              onInsertText={handleInsertAIText}
             />
           )}
         </main>

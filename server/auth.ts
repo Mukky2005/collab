@@ -1,7 +1,5 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as GitHubStrategy } from "passport-github2";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -13,7 +11,17 @@ import { z } from "zod";
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    // Fixed recursive type reference
+    interface User {
+      id: number;
+      username: string;
+      name?: string;
+      email?: string;
+      password?: string;
+      avatarUrl?: string | null;
+      createdAt?: Date;
+      updatedAt?: Date;
+    }
   }
 }
 
@@ -65,117 +73,7 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  // Google authentication strategy
-  const googleCallbackURL = process.env.NODE_ENV === "production" 
-    ? "https://yourdomain.com/api/auth/google/callback" 
-    : "http://localhost:5000/api/auth/google/callback";
-
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: googleCallbackURL,
-        scope: ["profile", "email"],
-      },
-      async (accessToken, refreshToken, profile, done) => {
-        try {
-          // Look for existing user with this Google ID
-          let user = await storage.getUserByGoogleId(profile.id);
-          
-          if (!user) {
-            // No user found with this Google ID, check if email already exists
-            const email = profile.emails && profile.emails[0] ? profile.emails[0].value : "";
-            if (email) {
-              user = await storage.getUserByEmail(email);
-            }
-            
-            if (user) {
-              // Update existing user with Google ID and other details
-              user = await storage.updateUser(user.id, {
-                googleId: profile.id,
-                avatarUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : user.avatarUrl,
-              });
-            } else {
-              // Create a new user
-              const username = `google_${profile.id}`;
-              const name = profile.displayName || "Google User";
-              const avatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
-              
-              user = await storage.createUser({
-                username,
-                name,
-                email,
-                googleId: profile.id,
-                avatarUrl,
-              });
-            }
-          }
-          
-          return done(null, user);
-        } catch (error) {
-          return done(error as Error);
-        }
-      }
-    )
-  );
-
-  // GitHub authentication strategy
-  const githubCallbackURL = process.env.NODE_ENV === "production" 
-    ? "https://yourdomain.com/api/auth/github/callback" 
-    : "http://localhost:5000/api/auth/github/callback";
-
-  passport.use(
-    new GitHubStrategy(
-      {
-        clientID: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        callbackURL: githubCallbackURL,
-        scope: ["user:email"],
-      },
-      async (accessToken, refreshToken, profile, done) => {
-        try {
-          // Look for existing user with this GitHub ID
-          let user = await storage.getUserByGithubId(profile.id);
-          
-          if (!user) {
-            // No user found with this GitHub ID, check if email already exists
-            const email = profile.emails && profile.emails[0] ? profile.emails[0].value : "";
-            if (email) {
-              user = await storage.getUserByEmail(email);
-            }
-            
-            if (user) {
-              // Update existing user with GitHub ID and other details
-              user = await storage.updateUser(user.id, {
-                githubId: profile.id,
-                avatarUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : user.avatarUrl,
-              });
-            } else {
-              // Create a new user
-              const username = `github_${profile.id}`;
-              const name = profile.displayName || "GitHub User";
-              const avatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
-              
-              user = await storage.createUser({
-                username,
-                name,
-                email,
-                githubId: profile.id,
-                avatarUrl,
-              });
-            }
-          }
-          
-          return done(null, user);
-        } catch (error) {
-          return done(error as Error);
-        }
-      }
-    )
-  );
-
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: Express.User, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -229,7 +127,7 @@ export function setupAuth(app: Express) {
 
   // Login endpoint
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: "Invalid username or password" });
       
@@ -306,32 +204,4 @@ export function setupAuth(app: Express) {
       res.status(500).json({ message: "Failed to update profile" });
     }
   });
-  
-  // Google OAuth routes
-  app.get(
-    "/api/auth/google",
-    passport.authenticate("google")
-  );
-  
-  app.get(
-    "/api/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/auth" }),
-    (req, res) => {
-      res.redirect("/");
-    }
-  );
-  
-  // GitHub OAuth routes
-  app.get(
-    "/api/auth/github",
-    passport.authenticate("github")
-  );
-  
-  app.get(
-    "/api/auth/github/callback",
-    passport.authenticate("github", { failureRedirect: "/auth" }),
-    (req, res) => {
-      res.redirect("/");
-    }
-  );
 }

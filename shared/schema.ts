@@ -9,8 +9,6 @@ export const users = pgTable("users", {
   password: text("password"),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  googleId: text("google_id").unique(),
-  githubId: text("github_id").unique(),
   avatarUrl: text("avatar_url"),
 });
 
@@ -19,8 +17,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   name: true,
   email: true,
-  googleId: true,
-  githubId: true,
   avatarUrl: true,
 });
 
