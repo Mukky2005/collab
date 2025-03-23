@@ -145,7 +145,7 @@ export function ShareDialog({ document, collaborators, isOpen, onClose }: ShareD
               <SelectTrigger className="w-[110px]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="commenter">Commenter</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
@@ -198,7 +198,7 @@ export function ShareDialog({ document, collaborators, isOpen, onClose }: ShareD
                     <SelectTrigger className="w-[110px] h-8 text-sm">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="editor">Editor</SelectItem>
                       <SelectItem value="commenter">Commenter</SelectItem>
                       <SelectItem value="viewer">Viewer</SelectItem>
@@ -216,7 +216,7 @@ export function ShareDialog({ document, collaborators, isOpen, onClose }: ShareD
                 <SelectTrigger className="w-[150px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   <SelectItem value="restricted">Restricted</SelectItem>
                   <SelectItem value="anyone">Anyone with the link</SelectItem>
                 </SelectContent>

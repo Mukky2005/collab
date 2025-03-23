@@ -6,6 +6,7 @@ import { setupWebSocketServer } from "./websocket";
 import { setupAuth } from "./auth";
 import { z } from "zod";
 import { insertDocumentSchema, insertCollaboratorSchema, insertCommentSchema } from "@shared/schema";
+import { generateAIResponse } from "./ai-assistant";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -148,6 +149,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Error deleting document" });
+    }
+  });
+  
+  // Make a copy of a document
+  app.post("/api/documents/:id/copy", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    const documentId = parseInt(req.params.id);
+    if (isNaN(documentId)) return res.status(400).json({ message: "Invalid document ID" });
+    
+    try {
+      const originalDocument = await storage.getDocument(documentId);
+      if (!originalDocument) return res.status(404).json({ message: "Document not found" });
+      
+      // Check if user has permission to view the document
+      const userId = req.user!.id;
+      const isOwner = originalDocument.ownerId === userId;
+      
+      if (!isOwner) {
+        const collaborators = await storage.getCollaborators(documentId);
+        const isCollaborator = collaborators.some(collab => collab.userId === userId);
+        
+        if (!isCollaborator) {
+          return res.status(403).json({ message: "No permission to access this document" });
+        }
+      }
+      
+      // Create a copy of the document
+      const documentData = {
+        title: `Copy of ${originalDocument.title}`,
+        content: originalDocument.content,
+        ownerId: userId
+      };
+      
+      const validatedData = insertDocumentSchema.parse(documentData);
+      const newDocument = await storage.createDocument(validatedData);
+      
+      res.status(201).json(newDocument);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid document data", errors: error.errors });
+      }
+      
+      console.error("Error copying document:", error);
+      res.status(500).json({ message: "Error copying document" });
     }
   });
 
@@ -435,6 +481,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting comment:", error);
       res.status(500).json({ message: "Error deleting comment" });
+    }
+  });
+
+  // AI Assistant route
+  app.post("/api/ai-assistant", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const { prompt } = req.body;
+      
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ message: "Invalid prompt" });
+      }
+      
+      const response = await generateAIResponse(prompt);
+      res.json({ response });
+    } catch (error) {
+      console.error("Error generating AI response:", error);
+      res.status(500).json({ message: "Error generating AI response", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

@@ -25,5 +25,93 @@
   
   .editor-content {
     @apply text-black;
+    line-height: 1.6;
+    font-size: 12pt;
+  }
+  
+  .editor-content h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 16pt;
+    color: #000;
+  }
+
+  .editor-content h2 {
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 12pt;
+    color: #000;
+  }
+
+  .editor-content h3 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 10pt;
+    color: #000;
+  }
+
+  .editor-content p {
+    margin-bottom: 10pt;
+  }
+
+  .editor-content ul, 
+  .editor-content ol {
+    margin-left: 20pt;
+    margin-bottom: 10pt;
+  }
+
+  .editor-content blockquote {
+    border-left: 4px solid #ddd;
+    padding-left: 10pt;
+    margin-left: 10pt;
+    font-style: italic;
+    color: #555;
+  }
+  
+  .editor-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 16pt auto;
+    border: 1px solid #eee;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .editor-content .img-small {
+    width: 25%;
+  }
+  
+  .editor-content .img-medium {
+    width: 50%;
+  }
+  
+  .editor-content .img-large {
+    width: 75%;
+  }
+  
+  .editor-content figcaption {
+    text-align: center;
+    font-size: 10pt;
+    color: #555;
+    margin-top: 4pt;
+    font-style: italic;
+  }
+  
+  /* Image dialog overlay for mobile responsiveness */
+  @media (max-width: 640px) {
+    .image-dialog {
+      width: 90% !important;
+      max-width: 90% !important;
+      padding: 15px !important;
+    }
+    
+    .image-dialog h3 {
+      font-size: 16px !important;
+    }
+    
+    .image-dialog button {
+      padding: 6px 10px !important;
+      font-size: 14px !important;
+    }
   }
 }

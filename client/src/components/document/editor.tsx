@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useImperativeHandle } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useAuth } from "@/hooks/use-auth";
 import { CommentSidebar } from "./comment-sidebar";
+import { AIAssistant } from "./ai-assistant";
 import type { Document } from "@shared/schema";
 
 interface CursorPosition {
@@ -20,13 +21,26 @@ interface EditorProps {
     username: string;
     name: string;
   }>;
+  onUndoRedoStateChange?: (canUndo: boolean, canRedo: boolean) => void;
 }
 
-export function Editor({ document: docData, onContentChange, activeUsers }: EditorProps) {
+// Define an interface for the methods exposed via the ref
+export interface EditorRef {
+  openAIAssistant: () => void;
+  insertAIText?: (text: string) => void;
+}
+
+export const Editor = React.forwardRef<EditorRef, EditorProps>(({ 
+  document: docData, 
+  onContentChange, 
+  activeUsers, 
+  onUndoRedoStateChange 
+}, ref) => {
   const { user } = useAuth();
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(docData.content);
   const [showCommentSidebar, setShowCommentSidebar] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [selectionFormat, setSelectionFormat] = useState({
     bold: false,
     italic: false,
@@ -37,6 +51,18 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
     fontFamily: 'default'
   });
   const [userCursors, setUserCursors] = useState<CursorPosition[]>([]);
+  
+  // History for undo/redo operations
+  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const [redoStack, setRedoStack] = useState<string[]>([]);
+  const isUndoRedoAction = useRef(false);
+  
+  // Initialize history with initial content
+  useEffect(() => {
+    if (docData.content) {
+      setUndoStack([docData.content]);
+    }
+  }, [docData.id]);
   
   // WebSocket functionality
   const { isConnected, sendMessage } = useWebSocket({
@@ -50,6 +76,31 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
       setContent(docData.content);
     }
   }, [docData.id, docData.content]);
+  
+  // Add keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (editorRef.current && editorRef.current.contains(e.target as Node)) {
+        // Check for undo: Ctrl+Z or Cmd+Z
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleFormat('undo');
+        }
+        
+        // Check for redo: Ctrl+Y or Cmd+Y or Ctrl+Shift+Z or Cmd+Shift+Z
+        if ((e.ctrlKey || e.metaKey) && 
+            ((e.key === 'y') || (e.key === 'z' && e.shiftKey))) {
+          e.preventDefault();
+          handleFormat('redo');
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [undoStack, redoStack, content]); // Dependencies to ensure up-to-date state access
   
   // Track text selection and format status
   useEffect(() => {
@@ -117,6 +168,19 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
   const handleInput = () => {
     if (editorRef.current) {
       const newContent = editorRef.current.innerHTML;
+      
+      // Don't add to history if this is an undo/redo action
+      if (!isUndoRedoAction.current && content) {
+        // Add current state to undo stack before changing
+        const validContent = content as string;
+        setUndoStack(prev => [...prev, validContent]);
+        // Clear redo stack when a new change is made
+        setRedoStack([]);
+      } else {
+        // Reset the flag
+        isUndoRedoAction.current = false;
+      }
+      
       setContent(newContent);
       onContentChange(newContent);
       
@@ -190,10 +254,257 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
         }
         break;
       case 'image':
-        const imgUrl = prompt('Enter the image URL:');
-        if (imgUrl) {
-          window.document.execCommand('insertImage', false, imgUrl);
-        }
+        // Create a file input element
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput);
+        
+        // Create a custom dialog for image insertion
+        const dialog = document.createElement('div');
+        dialog.className = 'image-dialog';
+        dialog.style.position = 'fixed';
+        dialog.style.top = '50%';
+        dialog.style.left = '50%';
+        dialog.style.transform = 'translate(-50%, -50%)';
+        dialog.style.backgroundColor = 'white';
+        dialog.style.padding = '20px';
+        dialog.style.borderRadius = '8px';
+        dialog.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        dialog.style.zIndex = '1000';
+        dialog.style.width = '400px';
+        dialog.style.maxWidth = '90%';
+        
+        dialog.innerHTML = `
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-weight: bold;">Insert Image</h3>
+          <div style="margin-bottom: 16px;">
+            <p style="margin-bottom: 8px; font-weight: bold;">Option 1: Upload an image</p>
+            <button id="upload-btn" style="padding: 6px 12px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; font-weight: bold;">
+              Choose Image
+            </button>
+            <p id="file-name" style="margin-top: 8px; font-size: 14px;"></p>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <p style="margin-bottom: 8px; font-weight: bold;">Option 2: Enter image URL</p>
+            <input id="img-url" type="text" placeholder="https://example.com/image.jpg" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px;">
+          </div>
+          <div style="margin-bottom: 16px;">
+            <p style="margin-bottom: 8px; font-weight: bold;">Image size</p>
+            <select id="img-size" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px;">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+              <option value="original">Original Size</option>
+            </select>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <p style="margin-bottom: 8px; font-weight: bold;">Image caption (optional)</p>
+            <input id="img-caption" type="text" placeholder="Figure 1: Description of the image" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px;">
+          </div>
+          <div style="margin-bottom: 16px;">
+            <p style="margin-bottom: 8px; font-weight: bold;">Alignment</p>
+            <div style="display: flex; gap: 8px;">
+              <button id="align-left" style="padding: 6px 12px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1;">
+                Left
+              </button>
+              <button id="align-center" style="padding: 6px 12px; background-color: #1e40af; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1;">
+                Center
+              </button>
+              <button id="align-right" style="padding: 6px 12px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1;">
+                Right
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button id="cancel-btn" style="padding: 8px 16px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; font-weight: bold;">
+              Cancel
+            </button>
+            <button id="insert-btn" style="padding: 8px 16px; background-color: #1e40af; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+              Insert
+            </button>
+          </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        // Event listeners
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileNameEl = document.getElementById('file-name');
+        const imgUrlEl = document.getElementById('img-url') as HTMLInputElement;
+        const imgCaptionEl = document.getElementById('img-caption') as HTMLInputElement;
+        const imgSizeEl = document.getElementById('img-size') as HTMLSelectElement;
+        const alignLeftBtn = document.getElementById('align-left');
+        const alignCenterBtn = document.getElementById('align-center');
+        const alignRightBtn = document.getElementById('align-right');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const insertBtn = document.getElementById('insert-btn');
+        
+        let selectedFile: File | null = null;
+        let alignment = 'center'; // Default alignment
+        
+        // Alignment button handlers
+        alignLeftBtn?.addEventListener('click', () => {
+          alignment = 'left';
+          alignLeftBtn.style.backgroundColor = '#1e40af';
+          alignLeftBtn.style.color = 'white';
+          alignLeftBtn.style.border = 'none';
+          
+          alignCenterBtn!.style.backgroundColor = '#f1f5f9';
+          alignCenterBtn!.style.color = 'black';
+          alignCenterBtn!.style.border = '1px solid #e2e8f0';
+          
+          alignRightBtn!.style.backgroundColor = '#f1f5f9';
+          alignRightBtn!.style.color = 'black';
+          alignRightBtn!.style.border = '1px solid #e2e8f0';
+        });
+        
+        alignCenterBtn?.addEventListener('click', () => {
+          alignment = 'center';
+          alignCenterBtn.style.backgroundColor = '#1e40af';
+          alignCenterBtn.style.color = 'white';
+          alignCenterBtn.style.border = 'none';
+          
+          alignLeftBtn!.style.backgroundColor = '#f1f5f9';
+          alignLeftBtn!.style.color = 'black';
+          alignLeftBtn!.style.border = '1px solid #e2e8f0';
+          
+          alignRightBtn!.style.backgroundColor = '#f1f5f9';
+          alignRightBtn!.style.color = 'black';
+          alignRightBtn!.style.border = '1px solid #e2e8f0';
+        });
+        
+        alignRightBtn?.addEventListener('click', () => {
+          alignment = 'right';
+          alignRightBtn.style.backgroundColor = '#1e40af';
+          alignRightBtn.style.color = 'white';
+          alignRightBtn.style.border = 'none';
+          
+          alignLeftBtn!.style.backgroundColor = '#f1f5f9';
+          alignLeftBtn!.style.color = 'black';
+          alignLeftBtn!.style.border = '1px solid #e2e8f0';
+          
+          alignCenterBtn!.style.backgroundColor = '#f1f5f9';
+          alignCenterBtn!.style.color = 'black';
+          alignCenterBtn!.style.border = '1px solid #e2e8f0';
+        });
+        
+        // Handle file selection
+        uploadBtn?.addEventListener('click', () => {
+          fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files && fileInput.files[0]) {
+            selectedFile = fileInput.files[0];
+            if (fileNameEl) fileNameEl.textContent = selectedFile.name;
+          }
+        });
+        
+        // Handle cancel
+        cancelBtn?.addEventListener('click', () => {
+          document.body.removeChild(dialog);
+          document.body.removeChild(fileInput);
+        });
+        
+        // Handle insert
+        insertBtn?.addEventListener('click', () => {
+          const url = imgUrlEl?.value;
+          const size = imgSizeEl?.value || 'medium';
+          const caption = imgCaptionEl?.value;
+          
+          if (selectedFile) {
+            // Read and insert the selected file
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const imgDataUrl = e.target?.result as string;
+              insertImageWithSize(imgDataUrl, size, caption, alignment);
+              document.body.removeChild(dialog);
+              document.body.removeChild(fileInput);
+            };
+            reader.readAsDataURL(selectedFile);
+          } else if (url) {
+            // Insert from URL
+            insertImageWithSize(url, size, caption, alignment);
+            document.body.removeChild(dialog);
+            document.body.removeChild(fileInput);
+          } else {
+            alert('Please upload an image or enter an image URL');
+          }
+        });
+        
+        // Function to insert image with selected size
+        const insertImageWithSize = (src: string, size: string, caption?: string, align: string = 'center') => {
+          // Create a figure container for the image and caption
+          const figure = document.createElement('figure');
+          figure.style.margin = '16pt 0';
+          
+          // Set alignment based on user selection
+          switch (align) {
+            case 'left':
+              figure.style.textAlign = 'left';
+              break;
+            case 'center':
+              figure.style.textAlign = 'center';
+              break;
+            case 'right':
+              figure.style.textAlign = 'right';
+              break;
+          }
+          
+          // Create and configure the image
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = caption || 'Research paper image';
+          
+          // Set the size based on user selection
+          switch (size) {
+            case 'small':
+              img.className = 'img-small';
+              break;
+            case 'medium':
+              img.className = 'img-medium';
+              break;
+            case 'large':
+              img.className = 'img-large';
+              break;
+            case 'original':
+              // No additional class for original size
+              break;
+          }
+          
+          // Add the image to the figure
+          figure.appendChild(img);
+          
+          // Add caption if provided
+          if (caption) {
+            const figcaption = document.createElement('figcaption');
+            figcaption.textContent = caption;
+            figure.appendChild(figcaption);
+          }
+          
+          // Insert the figure into the document
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(figure);
+            
+            // Move cursor after the figure
+            range.setStartAfter(figure);
+            range.setEndAfter(figure);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // Add a line break after the figure for better spacing
+            const br = document.createElement('br');
+            range.insertNode(br);
+            range.setStartAfter(br);
+            range.setEndAfter(br);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        };
         break;
       case 'heading':
         if (value) {
@@ -250,6 +561,76 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
           selection.addRange(range);
         }
         break;
+      
+      case 'undo':
+        // Check if there's anything to undo
+        if (undoStack.length > 0) {
+          // Get the last state from undo stack
+          const previousState = undoStack[undoStack.length - 1];
+          const newUndoStack = undoStack.slice(0, -1);
+          
+          // Add current state to redo stack if it exists
+          if (content) {
+            const validContent = content as string;
+            setRedoStack([...redoStack, validContent]);
+          }
+          
+          // Set flag to prevent adding to history in handleInput
+          isUndoRedoAction.current = true;
+          
+          // Update the content
+          if (editorRef.current && previousState) {
+            editorRef.current.innerHTML = previousState;
+            
+            // Update state
+            setContent(previousState);
+            onContentChange(previousState);
+            setUndoStack(newUndoStack);
+            
+            // Send content update to websocket
+            sendMessage({
+              type: 'document_edit',
+              documentId: docData.id,
+              content: previousState
+            });
+          }
+        }
+        break;
+        
+      case 'redo':
+        // Check if there's anything to redo
+        if (redoStack.length > 0) {
+          // Get the last state from redo stack
+          const nextState = redoStack[redoStack.length - 1];
+          const newRedoStack = redoStack.slice(0, -1);
+          
+          // Add current state to undo stack if it exists
+          if (content) {
+            const validContent = content as string;
+            setUndoStack([...undoStack, validContent]);
+          }
+          
+          // Set flag to prevent adding to history in handleInput
+          isUndoRedoAction.current = true;
+          
+          // Update the content
+          if (editorRef.current && nextState) {
+            editorRef.current.innerHTML = nextState;
+            
+            // Update state
+            setContent(nextState);
+            onContentChange(nextState);
+            setRedoStack(newRedoStack);
+            
+            // Send content update to websocket
+            sendMessage({
+              type: 'document_edit',
+              documentId: docData.id,
+              content: nextState
+            });
+          }
+        }
+        break;
     }
     
     // Get the updated content
@@ -259,6 +640,45 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
   const handleAddComment = () => {
     setShowCommentSidebar(true);
   };
+  
+  const handleOpenAIAssistant = () => {
+    setShowAIAssistant(true);
+  };
+  
+  const handleInsertAIText = (text: string) => {
+    if (editorRef.current) {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const textNode = document.createTextNode(text);
+        range.insertNode(textNode);
+        
+        // Move cursor to the end of inserted text
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // Trigger content update
+        handleInput();
+      } else {
+        // If no selection, append to the end
+        editorRef.current.appendChild(document.createTextNode(text));
+        handleInput();
+      }
+    }
+  };
+  
+  // Check if undo/redo operations are available
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+  
+  // Notify parent component about undo/redo state
+  useEffect(() => {
+    if (onUndoRedoStateChange) {
+      onUndoRedoStateChange(canUndo, canRedo);
+    }
+  }, [canUndo, canRedo, onUndoRedoStateChange]);
   
   // Create user cursors
   const renderUserCursors = () => {
@@ -285,10 +705,16 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
     ));
   };
   
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    openAIAssistant: handleOpenAIAssistant,
+    insertAIText: handleInsertAIText
+  }));
+  
   return (
     <div className="flex-1 overflow-hidden relative">
       <ScrollArea className="h-full">
-        <div className="max-w-4xl mx-auto p-8">
+        <div className="mx-auto p-8 flex justify-center">
           <div 
             className="editor-content bg-white border border-gray-200 rounded-lg shadow-sm p-6 relative text-black font-medium" 
             ref={editorRef}
@@ -296,6 +722,14 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
             onInput={handleInput}
             onMouseMove={handleMouseMove}
             suppressContentEditableWarning={true}
+            style={{
+              width: '210mm',              /* A4 width */
+              minHeight: '297mm',          /* A4 height */
+              padding: '20mm',             /* Standard margins */
+              boxSizing: 'border-box',
+              backgroundColor: 'white',
+              boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+            }}
           />
           
           {/* User cursors - temporarily disabled */}
@@ -308,6 +742,13 @@ export function Editor({ document: docData, onContentChange, activeUsers }: Edit
           onClose={() => setShowCommentSidebar(false)}
         />
       )}
+      
+      {showAIAssistant && (
+        <AIAssistant 
+          onClose={() => setShowAIAssistant(false)}
+          onInsertText={handleInsertAIText}
+        />
+      )}
     </div>
   );
-}
+});

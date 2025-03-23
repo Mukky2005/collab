@@ -248,7 +248,7 @@ export default function SettingsPage() {
                                 <SelectValue placeholder="Select size" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent position="popper">
                               <SelectItem value="12">12</SelectItem>
                               <SelectItem value="14">14</SelectItem>
                               <SelectItem value="16">16</SelectItem>
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                                 <SelectValue placeholder="Select spacing" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent position="popper">
                               <SelectItem value="1">Single</SelectItem>
                               <SelectItem value="1.15">1.15</SelectItem>
                               <SelectItem value="1.5">1.5</SelectItem>
@@ -304,7 +304,7 @@ export default function SettingsPage() {
                                 <SelectValue placeholder="Select interval" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent position="popper">
                               <SelectItem value="10">10</SelectItem>
                               <SelectItem value="30">30</SelectItem>
                               <SelectItem value="60">60</SelectItem>
@@ -575,7 +575,7 @@ export default function SettingsPage() {
                               <SelectValue placeholder="Select color" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent position="popper">
                             <SelectItem value="blue">Blue</SelectItem>
                             <SelectItem value="green">Green</SelectItem>
                             <SelectItem value="purple">Purple</SelectItem>
