@@ -1,0 +1,92 @@
+I'll define each of the formatting functions in detail to make sure they're all working properly:
+
+Text Formatting Functions
+1. Undo Function
+Purpose: Reverts the most recent change made to the document.
+Implementation:
+Stores document state history in an undo stack (undoStack).
+When triggered, pops the most recent state from the undo stack and applies it.
+Pushes the current state to the redo stack.
+Controlled by keyboard shortcut Ctrl+Z or Cmd+Z.
+UI: The undo button is disabled when there are no actions to undo.
+2. Redo Function
+Purpose: Redoes the most recent undone change.
+Implementation:
+When triggered, pops the most recent state from the redo stack and applies it.
+Pushes the previous state to the undo stack.
+Controlled by keyboard shortcut Ctrl+Y, Cmd+Y, or Ctrl+Shift+Z, Cmd+Shift+Z.
+UI: The redo button is disabled when there are no actions to redo.
+3. Bold Function
+Purpose: Toggles bold formatting for selected text.
+Implementation:
+Uses document.execCommand('bold') to toggle bold formatting.
+Updates the formatting toolbar to reflect the current state.
+UI: The bold button is highlighted when text with bold formatting is selected.
+4. Italic Function
+Purpose: Toggles italic formatting for selected text.
+Implementation:
+Uses document.execCommand('italic') to toggle italic formatting.
+Updates the formatting toolbar to reflect the current state.
+UI: The italic button is highlighted when text with italic formatting is selected.
+5. Underline Function
+Purpose: Toggles underline formatting for selected text.
+Implementation:
+Uses document.execCommand('underline') to toggle underline formatting.
+Updates the formatting toolbar to reflect the current state.
+UI: The underline button is highlighted when text with underline formatting is selected.
+6. Bulleted List Function
+Purpose: Creates or converts selected text to a bulleted list.
+Implementation:
+Uses document.execCommand('insertUnorderedList') to toggle bulleted list.
+Updates the formatting toolbar to reflect the current state.
+UI: The bulleted list button is highlighted when the cursor is inside a bulleted list.
+7. Numbered List Function
+Purpose: Creates or converts selected text to a numbered list.
+Implementation:
+Uses document.execCommand('insertOrderedList') to toggle numbered list.
+Updates the formatting toolbar to reflect the current state.
+UI: The numbered list button is highlighted when the cursor is inside a numbered list.
+8. Heading Function
+Purpose: Changes the heading level of selected text.
+Implementation:
+Offers multiple heading options (H1, H2, H3, etc.).
+Wraps the selected text in the appropriate heading tag.
+UI: A dropdown menu shows the currently applied heading.
+9. Font Family Function
+Purpose: Changes the font for selected text.
+Implementation:
+Offers a selection of fonts appropriate for academic papers.
+Applied using CSS styling.
+UI: A dropdown menu shows the currently applied font.
+10. Link Function
+Purpose: Converts selected text to a hyperlink.
+Implementation:
+Prompts for a URL when triggered.
+Uses document.execCommand('createLink') to create the link.
+UI: The link button is not state-dependent.
+11. Image Function
+Purpose: Inserts an image into the document.
+Implementation:
+Opens a dialog allowing users to:
+Upload an image file
+Specify an image URL
+Set image size (small, medium, large, original)
+Add a caption
+Choose alignment (left, center, right)
+Inserts the image with specified settings.
+UI: The image button is not state-dependent.
+12. Indent & Outdent Functions
+Purpose: Increases or decreases the indentation level of the text.
+Implementation:
+Uses document.execCommand('indent') and document.execCommand('outdent').
+UI: The indent/outdent buttons are not state-dependent.
+History Management
+The editor maintains two stacks:
+undoStack: Stores previous document states
+redoStack: Stores states that were undone
+Each edit operation:
+Saves current state to undo stack
+Clears redo stack (since a new edit creates a new future)
+Updates display
+The canUndo and canRedo states are passed from the Editor component to the FormattingToolbar via the parent DocumentPage component.
+The toolbar uses these states to enable/disable the undo/redo buttons.

@@ -17,7 +17,7 @@ interface HeaderProps {
   toggleSidebar?: () => void;
 }
 
-export function Header({ toggleSidebar }: HeaderProps) {
+export function Header(_props?: HeaderProps) {
   const { user, logoutMutation } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -39,18 +39,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2 h-14">
       <div className="flex items-center space-x-4">
-        {toggleSidebar && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={toggleSidebar}
-          >
-            <Menu className="h-6 w-6 text-gray-500" />
-            <span className="sr-only">Toggle menu</span>
-          </Button>
-        )}
-        <div className="flex items-center">
+        <Link href="/" className="flex items-center">
           <svg
             className="h-8 w-8 text-primary"
             fill="currentColor"
@@ -61,11 +50,11 @@ export function Header({ toggleSidebar }: HeaderProps) {
           <span className="ml-2 text-xl font-semibold text-gray-800">
             CollabEdit
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center space-x-2">
-        <DropdownMenu>
+        <DropdownMenu modal={true}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5 text-gray-600" />
@@ -89,7 +78,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu>
+        <DropdownMenu modal={true}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 flex items-center gap-1 pr-1">
               <Avatar className="h-8 w-8 bg-primary">

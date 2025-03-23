@@ -8,8 +8,10 @@ import {
   ArrowRight, 
   Link as LinkIcon, 
   Image, 
-  MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Undo,
+  Redo,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -39,8 +41,10 @@ interface FormattingToolbarProps {
     heading: string;
     fontFamily?: string;
   };
-  onAddComment: () => void;
+  onOpenAIAssistant: () => void;
   userCount?: number;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 function FormatButton({ icon, title, isActive, onClick }: FormatButtonProps) {
@@ -60,8 +64,10 @@ function FormatButton({ icon, title, isActive, onClick }: FormatButtonProps) {
 export function FormattingToolbar({ 
   onFormat, 
   selectionFormat, 
-  onAddComment,
-  userCount = 0
+  onOpenAIAssistant,
+  userCount = 0,
+  canUndo = false,
+  canRedo = false
 }: FormattingToolbarProps) {
   const handleHeadingChange = (value: string) => {
     onFormat('heading', value);
@@ -78,7 +84,7 @@ export function FormattingToolbar({
           <SelectTrigger className="h-8 w-40">
             <SelectValue placeholder="Normal text" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="p">Normal text</SelectItem>
             <SelectItem value="h1">Heading 1</SelectItem>
             <SelectItem value="h2">Heading 2</SelectItem>
@@ -91,7 +97,7 @@ export function FormattingToolbar({
           <SelectTrigger className="h-8 w-32">
             <SelectValue placeholder="Font" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="default">Default</SelectItem>
             <SelectItem value="Arial, sans-serif">Arial</SelectItem>
             <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
@@ -127,6 +133,7 @@ export function FormattingToolbar({
       <Separator orientation="vertical" className="h-6" />
       
       <div className="flex items-center space-x-1">
+        
         <FormatButton 
           icon={<List className="h-4 w-4" />} 
           title="Bulleted list" 
@@ -170,9 +177,9 @@ export function FormattingToolbar({
         />
         
         <FormatButton 
-          icon={<MessageSquare className="h-4 w-4" />} 
-          title="Add comment" 
-          onClick={onAddComment} 
+          icon={<Bot className="h-4 w-4" />} 
+          title="AI Writing Assistant" 
+          onClick={onOpenAIAssistant} 
         />
       </div>
       

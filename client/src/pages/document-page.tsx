@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
-import { Editor } from "@/components/document/editor";
+import { Editor, EditorRef } from "@/components/document/editor";
 import { DocumentHeader } from "@/components/document/document-header";
 import { FormattingToolbar } from "@/components/document/formatting-toolbar";
 import { Loader2 } from "lucide-react";
@@ -11,11 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/use-websocket";
+// Import the AIAssistant component directly without using an alias path
+import { AIAssistant } from "../components/document/ai-assistant";
 
 export default function DocumentPage() {
   const { id } = useParams();
-  const documentId = parseInt(id);
+  const documentId = parseInt(id || "0");
   const { toast } = useToast();
+  const editorRef = useRef<EditorRef>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [content, setContent] = useState("");
   const [isAutosaving, setIsAutosaving] = useState(false);
@@ -29,6 +32,10 @@ export default function DocumentPage() {
     heading: 'p',
     fontFamily: 'default'
   });
+  
+  // Track undo/redo state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   
   // Get document data
   const { data, isLoading, error } = useQuery({
@@ -126,6 +133,12 @@ export default function DocumentPage() {
     updateTitleMutation.mutate(newTitle);
   };
   
+  // Handle undo/redo state changes from editor
+  const handleUndoRedoStateChange = (undoEnabled: boolean, redoEnabled: boolean) => {
+    setCanUndo(undoEnabled);
+    setCanRedo(redoEnabled);
+  };
+  
   // Handle formatting commands
   const handleFormat = (command: string, value?: string) => {
     // This is handled by the Editor component
@@ -164,6 +177,32 @@ export default function DocumentPage() {
     // This is handled by the Editor component
   };
   
+  // New approach: handle AI Assistant directly in document page
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  
+  const handleOpenAIAssistant = () => {
+    console.log("AI Assistant button clicked");
+    setShowAIAssistant(true);
+  };
+  
+  const handleCloseAIAssistant = () => {
+    setShowAIAssistant(false);
+  };
+  
+  const handleInsertAIText = (text: string) => {
+    if (editorRef.current) {
+      // Use the insertAIText method from the editor through ref if available
+      if (typeof editorRef.current.insertAIText === 'function') {
+        editorRef.current.insertAIText(text);
+      } else {
+        console.log("insertAIText not available on editor ref");
+        // Fallback: Just update the content
+        handleContentChange(content + text);
+      }
+      setShowAIAssistant(false);
+    }
+  };
+  
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -183,7 +222,7 @@ export default function DocumentPage() {
     );
   }
   
-  const { document, collaborators = [] } = data;
+  const { document, collaborators = [] } = data || {};
   
   return (
     <div className="h-screen flex flex-col">
@@ -203,20 +242,33 @@ export default function DocumentPage() {
             collaborators={collaborators.map((c: any) => c.user)}
             onTitleChange={handleTitleChange}
             isAutosaving={isAutosaving}
+            editorContent={content}
           />
           
           <FormattingToolbar 
             onFormat={handleFormat}
             selectionFormat={selectionFormat}
-            onAddComment={handleAddComment}
+            onOpenAIAssistant={handleOpenAIAssistant}
             userCount={activeUsers.length}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
           
           <Editor 
+            ref={editorRef}
             document={document}
             onContentChange={handleContentChange}
             activeUsers={activeUsers}
+            onUndoRedoStateChange={handleUndoRedoStateChange}
           />
+          
+          {/* Show AI Assistant when active */}
+          {showAIAssistant && (
+            <AIAssistant
+              onClose={handleCloseAIAssistant}
+              onInsertText={handleInsertAIText}
+            />
+          )}
         </main>
       </div>
     </div>

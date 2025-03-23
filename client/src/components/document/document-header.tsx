@@ -17,6 +17,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import html2pdf from "html2pdf.js";
 
 interface CollaboratorUser {
   id: number;
@@ -29,9 +30,10 @@ interface DocumentHeaderProps {
   collaborators: CollaboratorUser[];
   onTitleChange: (title: string) => void;
   isAutosaving: boolean;
+  editorContent?: string;
 }
 
-export function DocumentHeader({ document, collaborators, onTitleChange, isAutosaving }: DocumentHeaderProps) {
+export function DocumentHeader({ document, collaborators, onTitleChange, isAutosaving, editorContent }: DocumentHeaderProps) {
   const [title, setTitle] = useState(document.title);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const { toast } = useToast();
@@ -83,6 +85,29 @@ export function DocumentHeader({ document, collaborators, onTitleChange, isAutos
     },
   });
   
+  // Make a copy mutation
+  const copyDocumentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/documents/${document.id}/copy`);
+      return response.json();
+    },
+    onSuccess: (newDocument) => {
+      window.location.href = `/document/${newDocument.id}`;
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      toast({
+        title: "Document copied",
+        description: "A copy of the document has been created.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error copying document",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
   };
@@ -120,6 +145,63 @@ export function DocumentHeader({ document, collaborators, onTitleChange, isAutos
     if (diffInDays < 7) return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`;
     
     return date.toLocaleDateString();
+  };
+  
+  const exportToPdf = () => {
+    try {
+      // Get the document content
+      const contentToPrint = document.content || editorContent || '';
+      
+      // Create a temporary container with the content
+      const tempContainer = window.document.createElement('div');
+      tempContainer.innerHTML = contentToPrint;
+      
+      // Apply styles for better PDF output
+      tempContainer.style.width = '8.5in';
+      tempContainer.style.padding = '1in';
+      tempContainer.style.backgroundColor = 'white';
+      tempContainer.style.color = 'black';
+      tempContainer.style.fontFamily = 'Arial, sans-serif';
+      
+      // Add document title at the top
+      const titleElement = window.document.createElement('h1');
+      titleElement.textContent = title;
+      titleElement.style.marginBottom = '20px';
+      titleElement.style.borderBottom = '1px solid #ddd';
+      titleElement.style.paddingBottom = '10px';
+      tempContainer.prepend(titleElement);
+      
+      // Create the PDF with html2pdf
+      const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'in', 
+          format: 'letter', 
+          orientation: 'portrait' as 'portrait'
+        }
+      };
+      
+      // Generate the PDF
+      html2pdf().from(tempContainer).set(opt).save();
+      
+      toast({
+        title: "PDF Export",
+        description: "Your document has been exported as PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "PDF Export Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    }
   };
   
   return (
@@ -171,7 +253,7 @@ export function DocumentHeader({ document, collaborators, onTitleChange, isAutos
               Share
             </Button>
             
-            <DropdownMenu>
+            <DropdownMenu modal={true}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9">
                   <MoreVertical className="h-5 w-5 text-gray-500" />
@@ -179,11 +261,11 @@ export function DocumentHeader({ document, collaborators, onTitleChange, isAutos
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToPdf}>
                     <Download className="mr-2 h-4 w-4" />
                     <span>Export as PDF</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => copyDocumentMutation.mutate()}>
                     <Copy className="mr-2 h-4 w-4" />
                     <span>Make a copy</span>
                   </DropdownMenuItem>

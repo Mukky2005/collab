@@ -158,6 +158,7 @@ export class MemStorage implements IStorage {
     const document: Document = { 
       ...insertDocument, 
       id, 
+      content: insertDocument.content || null,
       createdAt: now, 
       updatedAt: now 
     };
@@ -226,6 +227,7 @@ export class MemStorage implements IStorage {
     const comment: Comment = { 
       ...insertComment, 
       id, 
+      parentId: insertComment.parentId || null,
       createdAt: now 
     };
     this.comments.set(id, comment);
